@@ -51,28 +51,84 @@ class ServiceManager:
         print("所有服务已停止")
         sys.exit(0)
 
+    def kill_port_process(self, port):
+        import subprocess as sp
+        try:
+            result = sp.run(
+                f"netstat -ano | findstr :{port}",
+                shell=True,
+                capture_output=True,
+                text=True
+            )
+            if result.stdout:
+                for line in result.stdout.split('\n'):
+                    if 'LISTENING' in line:
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            pid = parts[-1]
+                            try:
+                                sp.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
+                                print(f"  已释放端口 {port} (PID: {pid})")
+                                time.sleep(1)
+                                return True
+                            except:
+                                pass
+        except:
+            pass
+        return False
+
+    def check_port_available(self, port):
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind(('0.0.0.0', port))
+            sock.close()
+            return True
+        except:
+            return False
+
     def start_api_server(self):
         print("启动 API 服务器...")
+        
+        if not self.check_port_available(8000):
+            print("  端口 8000 被占用，尝试释放...")
+            self.kill_port_process(8000)
+            if not self.check_port_available(8000):
+                print("  端口 8000 仍然被占用，请手动检查")
+                return None
+        
         cmd = f"{sys.executable} -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
         process = self.run_command(cmd)
-        time.sleep(2)
+        time.sleep(3)
+        
         if process.poll() is None:
-            print("✓ API 服务器已启动 (http://localhost:8000)")
+            print("API 服务器已启动 (http://localhost:8000)")
             print("  API 文档: http://localhost:8000/api/docs")
         else:
-            print("✗ API 服务器启动失败")
+            print("API 服务器启动失败")
+            stdout, stderr = process.communicate()
+            if stdout:
+                print(f"  错误输出: {stdout[:500]}")
         return process
 
     def start_chainlit_frontend(self, port=8001):
         print(f"启动 Chainlit 前端...")
+        
+        if not self.check_port_available(port):
+            print(f"  端口 {port} 被占用，尝试释放...")
+            self.kill_port_process(port)
+            if not self.check_port_available(port):
+                print(f"  端口 {port} 仍然被占用，请手动检查")
+                return None
+        
         cmd = f"{sys.executable} -m chainlit run frontend/app.py --watch --port {port} --host 0.0.0.0"
         process = self.run_command(cmd)
         time.sleep(5)
+        
         if process.poll() is None:
-            print(f"✓ Chainlit 前端已启动 (http://localhost:{port})")
+            print(f"Chainlit 前端已启动 (http://localhost:{port})")
         else:
-            print(f"✗ Chainlit 前端启动失败")
-            # 不读取输出，避免编码问题
+            print(f"Chainlit 前端启动失败")
             print("请检查 frontend/app.py 是否存在或手动运行以下命令调试：")
             print(f"  {cmd}")
         return process
@@ -85,7 +141,7 @@ class ServiceManager:
 
     def check_dependencies(self):
         print("检查依赖...")
-        required_packages = ['fastapi', 'uvicorn', 'sqlalchemy', 'pydantic']
+        required_packages = ['fastapi', 'uvicorn', 'sqlalchemy', 'pydantic', 'chainlit']
         missing = []
         for package in required_packages:
             try:
@@ -94,20 +150,20 @@ class ServiceManager:
                 missing.append(package)
         
         if missing:
-            print(f"✗ 缺少依赖包: {', '.join(missing)}")
+            print(f"缺少依赖包: {', '.join(missing)}")
             print("请运行: pip install -r requirements.txt")
             return False
-        print("✓ 依赖检查通过")
+        print("依赖检查通过")
         return True
 
     def check_env(self):
         print("检查环境配置...")
         env_file = self.project_root / '.env'
         if not env_file.exists():
-            print("✗ .env 文件不存在")
+            print(".env 文件不存在")
             print("请复制 .env.example 为 .env 并配置 API 密钥")
             return False
-        print("✓ 环境配置检查通过")
+        print("环境配置检查通过")
         return True
 
     def run_all(self, mode='api'):
@@ -128,9 +184,13 @@ class ServiceManager:
         if mode == 'api':
             self.start_api_server()
         elif mode == 'all':
-            self.start_api_server()
-            print()
-            self.start_chainlit_frontend()
+            api_proc = self.start_api_server()
+            if api_proc and api_proc.poll() is None:
+                print()
+                self.start_chainlit_frontend()
+            else:
+                print()
+                print("API 服务器启动失败，跳过前端启动")
         elif mode == 'cli':
             self.start_cli_interactive()
 

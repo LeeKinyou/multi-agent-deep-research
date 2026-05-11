@@ -9,33 +9,27 @@ from typing import Dict, Any, Optional
 import requests
 
 API_BASE_URL = "http://localhost:8000"
+HTTP_TIMEOUT = 120
 
 
 async def handle_plan_confirmation(task_id: str, plan_data: Dict[str, Any]):
-    """
-    处理计划确认交互
-    
-    Args:
-        task_id: 任务ID
-        plan_data: 计划数据字典
-    """
     actions = [
         cl.Action(
             name="confirm_plan",
             value="confirmed",
-            label="✅ 确认执行",
+            label="确认执行",
             payload={"task_id": task_id, "action": "confirm"},
         ),
         cl.Action(
             name="modify_plan",
             value="modify",
-            label="✏️ 修改计划",
+            label="修改计划",
             payload={"task_id": task_id, "action": "modify"},
         ),
         cl.Action(
             name="cancel_plan",
             value="cancelled",
-            label="❌ 取消研究",
+            label="取消研究",
             payload={"task_id": task_id, "action": "cancel"},
         ),
     ]
@@ -48,19 +42,18 @@ async def handle_plan_confirmation(task_id: str, plan_data: Dict[str, Any]):
 
 @cl.action_callback("confirm_plan")
 async def on_confirm(action: cl.Action):
-    """处理确认计划操作"""
     task_id = action.payload.get("task_id")
     
     try:
         response = requests.post(
             f"{API_BASE_URL}/api/v1/tasks/{task_id}/plan/confirm",
             json={"confirmed": True},
-            timeout=10
+            timeout=HTTP_TIMEOUT
         )
         
         if response.status_code == 200:
             await cl.Message(
-                content="✅ 研究计划已确认，正在开始执行..."
+                content="研究计划已确认，正在开始执行..."
             ).send()
             
             cl.user_session.set("plan_confirmed", True)
@@ -68,22 +61,21 @@ async def on_confirm(action: cl.Action):
             await execute_confirmed_plan(task_id)
         else:
             await cl.Message(
-                content="❌ 确认计划失败，请重试"
+                content="确认计划失败，请重试"
             ).send()
             
     except requests.ConnectionError:
         await cl.Message(
-            content="❌ 无法连接到API服务，请确保后端服务已启动"
+            content="无法连接到API服务，请确保后端服务已启动"
         ).send()
     except Exception as e:
-        await cl.Message(content=f"❌ 发生错误：{str(e)}").send()
+        await cl.Message(content=f"发生错误：{str(e)}").send()
 
 
 @cl.action_callback("modify_plan")
 async def on_modify(action: cl.Action):
-    """处理修改计划操作"""
     await cl.Message(
-        content="✏️ 请输入您的修改意见，例如：\n\n"
+        content="请输入您的修改意见，例如：\n\n"
                 "- 增加某个研究维度\n"
                 "- 调整研究深度\n"
                 "- 修改搜索方向\n\n"
@@ -95,51 +87,44 @@ async def on_modify(action: cl.Action):
 
 @cl.action_callback("cancel_plan")
 async def on_cancel(action: cl.Action):
-    """处理取消计划操作"""
     task_id = action.payload.get("task_id")
     
     try:
         response = requests.post(
             f"{API_BASE_URL}/api/v1/tasks/{task_id}/cancel",
-            timeout=10
+            timeout=HTTP_TIMEOUT
         )
         
         if response.status_code == 200:
             await cl.Message(
-                content="⛔ 研究计划已取消。\n\n"
+                content="研究计划已取消。\n\n"
                         "请输入新的研究主题开始新的研究。"
             ).send()
             
             cl.user_session.set("current_task_id", None)
             cl.user_session.set("current_plan", None)
         else:
-            await cl.Message(content="❌ 取消计划失败，请重试").send()
+            await cl.Message(content="取消计划失败，请重试").send()
             
     except Exception as e:
-        await cl.Message(content=f"❌ 发生错误：{str(e)}").send()
+        await cl.Message(content=f"发生错误：{str(e)}").send()
 
 
 async def execute_confirmed_plan(task_id: str):
-    """
-    执行已确认的计划
-    
-    Args:
-        task_id: 任务ID
-    """
     topic = cl.user_session.get("current_topic", "研究")
     
     try:
         from crew import ResearchCrew
         
-        progress_msg = await cl.Message(content="🚀 正在执行研究计划...").send()
+        progress_msg = await cl.Message(content="正在执行研究计划...").send()
         
         crew = ResearchCrew()
         
         await cl.Message(
-            content="📊 执行步骤：\n\n"
-                    "1. 🔍 情报采集Agent - 搜索相关信息\n"
-                    "2. 📈 商业分析Agent - 多维度分析\n"
-                    "3. 📝 报告生成Agent - 撰写研究报告\n\n"
+            content="执行步骤：\n\n"
+                    "1. 情报采集Agent - 搜索相关信息\n"
+                    "2. 商业分析Agent - 多维度分析\n"
+                    "3. 报告生成Agent - 撰写研究报告\n\n"
                     "请稍候，这可能需要几分钟..."
         ).send()
         
@@ -153,17 +138,10 @@ async def execute_confirmed_plan(task_id: str):
         cl.user_session.set("plan_confirmed", False)
         
     except Exception as e:
-        await cl.Message(content=f"❌ 执行研究计划失败：{str(e)}").send()
+        await cl.Message(content=f"执行研究计划失败：{str(e)}").send()
 
 
 async def handle_plan_modification(task_id: str, modifications: str):
-    """
-    处理计划修改请求
-    
-    Args:
-        task_id: 任务ID
-        modifications: 修改意见
-    """
     try:
         response = requests.post(
             f"{API_BASE_URL}/api/v1/tasks/{task_id}/plan/confirm",
@@ -171,31 +149,24 @@ async def handle_plan_modification(task_id: str, modifications: str):
                 "confirmed": False,
                 "modifications": modifications,
             },
-            timeout=10
+            timeout=HTTP_TIMEOUT
         )
         
         if response.status_code == 200:
             await cl.Message(
-                content=f"📝 修改意见已提交：{modifications}\n\n"
+                content=f"修改意见已提交：{modifications}\n\n"
                         f"正在根据您的需求调整研究计划..."
             ).send()
             
             await regenerate_plan(task_id, modifications)
         else:
-            await cl.Message(content="❌ 提交修改意见失败，请重试").send()
+            await cl.Message(content="提交修改意见失败，请重试").send()
             
     except Exception as e:
-        await cl.Message(content=f"❌ 发生错误：{str(e)}").send()
+        await cl.Message(content=f"发生错误：{str(e)}").send()
 
 
 async def regenerate_plan(task_id: str, modifications: str):
-    """
-    根据修改意见重新生成计划
-    
-    Args:
-        task_id: 任务ID
-        modifications: 修改意见
-    """
     topic = cl.user_session.get("current_topic", "研究")
     
     try:
@@ -241,4 +212,4 @@ async def regenerate_plan(task_id: str, modifications: str):
         await handle_plan_confirmation(task_id, plan_dict)
         
     except Exception as e:
-        await cl.Message(content=f"❌ 重新生成计划失败：{str(e)}").send()
+        await cl.Message(content=f"重新生成计划失败：{str(e)}").send()

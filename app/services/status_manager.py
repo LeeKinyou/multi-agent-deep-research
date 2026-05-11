@@ -1,10 +1,9 @@
 import logging
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import Task, TaskStatus
+from app.models.database import Task, TaskStatus, utcnow
 from app.models.schemas import TaskStatusEnum
 
 logger = logging.getLogger(__name__)
@@ -22,10 +21,10 @@ class StatusManager:
 
         old_status = task.status
         task.status = TaskStatus(status.value)
-        task.updated_at = datetime.utcnow()
+        task.updated_at = utcnow()
 
         if status == TaskStatusEnum.completed:
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utcnow()
         elif status == TaskStatusEnum.failed and error_message:
             task.error_message = error_message
 

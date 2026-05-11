@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.models.database import init_db
-from app.routers import health, plans, tasks
+from app.routers import health, plans, tasks, stream
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +62,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(tasks.router)
 app.include_router(plans.router)
+app.include_router(stream.router)
 
 
 @app.get("/")

@@ -9,17 +9,16 @@ from typing import Optional, Dict, Any
 
 
 async def show_welcome_message():
-    """显示欢迎消息"""
-    welcome_md = """# 🎯 MultiAgentDeepResearch
+    welcome_md = """# MultiAgentDeepResearch
 
 欢迎使用多智能体深度研究系统！
 
 ## 系统功能
 
-- 📝 **智能规划**: 主编Agent自动制定研究计划
-- 🔍 **信息采集**: 情报采集Agent实时搜索网络信息
-- 📊 **多维度分析**: 商业分析Agent进行SWOT、竞品分析
-- 📄 **报告生成**: 自动生成结构化研究报告
+- **智能规划**: 主编Agent自动制定研究计划
+- **信息采集**: 情报采集Agent实时搜索网络信息
+- **多维度分析**: 商业分析Agent进行SWOT、竞品分析
+- **报告生成**: 自动生成结构化研究报告
 
 ## 使用方式
 
@@ -36,14 +35,14 @@ async def show_welcome_message():
 
 ---
 
-**请输入您的研究主题开始研究** 🚀
+**请输入您的研究主题开始研究**
 """
     
     actions = [
         cl.Action(
             name="view_history",
             value="history",
-            label="📚 查看历史记录",
+            label="历史记录",
             payload={"action": "history"},
         ),
     ]
@@ -190,6 +189,28 @@ async def show_execution_log(logs: list):
         log_md += f"{message}\n\n"
     
     await cl.Message(content=log_md).send()
+
+
+async def show_agent_thinking(agent_name: str, thinking_content: str, is_collapsed: bool = True):
+    """
+    显示Agent思考过程（可折叠）
+    
+    Args:
+        agent_name: Agent名称
+        thinking_content: 思考内容
+        is_collapsed: 是否默认折叠
+    """
+    collapse_tag = "open" if not is_collapsed else ""
+    
+    thinking_md = f"""
+<details {collapse_tag}>
+<summary>🧠 <strong>{agent_name}</strong> 的思考过程</summary>
+
+{thinking_content}
+
+</details>
+"""
+    await cl.Message(content=thinking_md).send()
 
 
 def format_task_progress(task_info: Dict[str, Any]) -> str:

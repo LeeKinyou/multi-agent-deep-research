@@ -1,12 +1,11 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import ExecutionLog, Task, TaskResult, TaskStatus
+from app.models.database import ExecutionLog, Task, TaskResult, TaskStatus, utcnow
 from app.models.schemas import TaskStatusEnum
 
 logger = logging.getLogger(__name__)
@@ -111,7 +110,7 @@ class TaskService:
 
         try:
             task.status = TaskStatus.running
-            task.updated_at = datetime.utcnow()
+            task.updated_at = utcnow()
             self.db.commit()
 
             loop = asyncio.get_event_loop()
@@ -119,8 +118,8 @@ class TaskService:
 
             self.save_task_result(task_id, report_content=str(result))
             task.status = TaskStatus.completed
-            task.completed_at = datetime.utcnow()
-            task.updated_at = datetime.utcnow()
+            task.completed_at = utcnow()
+            task.updated_at = utcnow()
             self.db.commit()
 
             self.add_log(task_id, message="Task execution completed", log_level="info")
@@ -130,7 +129,7 @@ class TaskService:
             logger.error(f"Task {task_id} failed: {str(e)}", exc_info=True)
             task.status = TaskStatus.failed
             task.error_message = str(e)
-            task.updated_at = datetime.utcnow()
+            task.updated_at = utcnow()
             self.db.commit()
 
             self.add_log(task_id, message=f"Task failed: {str(e)}", log_level="error")
@@ -153,7 +152,7 @@ class TaskService:
             del self._running_tasks[task_id]
 
         task.status = TaskStatus.cancelled
-        task.updated_at = datetime.utcnow()
+        task.updated_at = utcnow()
         self.db.commit()
 
         self.add_log(task_id, message="Task cancelled by user", log_level="warning")
@@ -166,7 +165,7 @@ class TaskService:
             raise ValueError(f"Task {task_id} not found")
 
         task.status = TaskStatus.pending
-        task.updated_at = datetime.utcnow()
+        task.updated_at = utcnow()
         self.db.commit()
 
         async_task = asyncio.create_task(self.execute_task(task_id, execution_func, *args, **kwargs))

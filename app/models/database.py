@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
@@ -12,12 +12,16 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 from config import app_config
 
 Base = declarative_base()
+
+
+def utcnow():
+    """返回当前UTC时间"""
+    return datetime.now(timezone.utc)
 
 
 class TaskStatus(str, enum.Enum):
@@ -43,8 +47,8 @@ class Task(Base):
     topic = Column(String(500), nullable=False)
     status = Column(Enum(TaskStatus), default=TaskStatus.planning, nullable=False)
     depth = Column(String(20), default="standard")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
 
@@ -61,7 +65,7 @@ class ResearchPlan(Base):
     plan_content = Column(Text, nullable=False)
     version = Column(Integer, default=1, nullable=False)
     status = Column(Enum(PlanStatus), default=PlanStatus.draft, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     confirmed_at = Column(DateTime, nullable=True)
 
     task = relationship("Task", back_populates="plan")
@@ -76,7 +80,7 @@ class TaskResult(Base):
     report_format = Column(String(20), default="markdown")
     sources_count = Column(Integer, default=0)
     word_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     task = relationship("Task", back_populates="results")
 
@@ -91,7 +95,7 @@ class ExecutionLog(Base):
     log_level = Column(String(20), default="info")
     message = Column(Text, nullable=True)
     validation_event = Column(Integer, default=0)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utcnow, nullable=False)
 
     task = relationship("Task", back_populates="logs")
 

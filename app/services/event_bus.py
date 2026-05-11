@@ -1,10 +1,14 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def utcnow_iso():
+    return datetime.now(timezone.utc).isoformat()
 
 
 class EventType(str, Enum):
@@ -46,7 +50,7 @@ class EventBus:
         event = {
             "type": event_type.value,
             "data": data,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow_iso(),
         }
 
         self._event_history.append(event)

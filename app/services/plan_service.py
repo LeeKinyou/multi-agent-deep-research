@@ -1,11 +1,10 @@
 import json
 import logging
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import PlanStatus, ResearchPlan, TaskStatus
+from app.models.database import PlanStatus, ResearchPlan, TaskStatus, utcnow
 from app.models.schemas import PlanConfirmRequest, PlanStatusEnum
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ class PlanService:
 
         if request.confirmed:
             plan.status = PlanStatus.confirmed
-            plan.confirmed_at = datetime.utcnow()
+            plan.confirmed_at = utcnow()
             logger.info(f"Plan confirmed for task {task_id}")
         else:
             plan.status = PlanStatus.modified

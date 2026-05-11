@@ -9,16 +9,10 @@ from typing import Optional, Dict, Any
 import requests
 
 API_BASE_URL = "http://localhost:8000"
+HTTP_TIMEOUT = 120
 
 
-async def render_report(report_content: str, task_id: str):
-    """
-    渲染研究报告
-    
-    Args:
-        report_content: 报告Markdown内容
-        task_id: 任务ID
-    """
+async def render_report(report_content: str, task_id: str, agent_thoughts: list = None):
     elements = [
         cl.File(
             name=f"report_{task_id}.md",
@@ -32,18 +26,24 @@ async def render_report(report_content: str, task_id: str):
         cl.Action(
             name="download_report",
             value="download",
-            label="📥 下载报告",
+            label="下载",
+            payload={"task_id": task_id},
+        ),
+        cl.Action(
+            name="show_thinking_process",
+            value="show",
+            label="查看思考过程",
             payload={"task_id": task_id},
         ),
         cl.Action(
             name="new_research",
             value="new",
-            label="🔄 新的研究",
+            label="新的研究",
             payload={"action": "new"},
         ),
     ]
     
-    success_md = f"""# ✅ 研究完成
+    success_md = f"""# 研究完成
 
 **任务ID**: `{task_id}`
 
@@ -53,7 +53,7 @@ async def render_report(report_content: str, task_id: str):
 
 ---
 
-## 📥 下载报告
+## 下载报告
 
 点击下方按钮下载完整报告，或输入新的研究主题开始新的研究。
 """
@@ -66,16 +66,10 @@ async def render_report(report_content: str, task_id: str):
 
 
 async def render_report_from_api(task_id: str):
-    """
-    从API获取并渲染报告
-    
-    Args:
-        task_id: 任务ID
-    """
     try:
         response = requests.get(
             f"{API_BASE_URL}/api/v1/tasks/{task_id}/result",
-            timeout=10
+            timeout=HTTP_TIMEOUT
         )
         
         if response.status_code == 200:
@@ -84,7 +78,7 @@ async def render_report_from_api(task_id: str):
             word_count = result.get("word_count", 0)
             sources_count = result.get("sources_count", 0)
             
-            report_md = f"""# 📄 研究报告
+            report_md = f"""# 研究报告
 
 **任务ID**: `{task_id}`
 
@@ -98,7 +92,7 @@ async def render_report_from_api(task_id: str):
 
 ---
 
-## 📥 下载报告
+## 下载报告
 
 点击下方按钮下载完整报告。
 """
@@ -118,15 +112,15 @@ async def render_report_from_api(task_id: str):
             ).send()
         else:
             await cl.Message(
-                content=f"❌ 获取报告失败，状态码：{response.status_code}"
+                content=f"获取报告失败，状态码：{response.status_code}"
             ).send()
             
     except requests.ConnectionError:
         await cl.Message(
-            content="❌ 无法连接到API服务，请确保后端服务已启动"
+            content="无法连接到API服务，请确保后端服务已启动"
         ).send()
     except Exception as e:
-        await cl.Message(content=f"❌ 发生错误：{str(e)}").send()
+        await cl.Message(content=f"发生错误：{str(e)}").send()
 
 
 async def show_report_preview(report_content: str, max_lines: int = 50):
