@@ -71,3 +71,15 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Reports
+reports/
+
+# db
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3.db
+
+# chainlit
+.chainlit/

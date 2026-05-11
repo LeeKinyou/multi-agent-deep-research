@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: multiagent-api
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_MODEL=${LLM_MODEL}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - DATABASE_URL=sqlite:///./data/tasks.db
+      - DEBUG=false
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build: .
+    container_name: multiagent-frontend
+    ports:
+      - "8001:8001"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    command: chainlit run frontend/app.py --watch --port 8001
+    restart: unless-stopped
+
+volumes:
+  data:
+  reports:

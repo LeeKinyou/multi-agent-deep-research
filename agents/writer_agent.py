@@ -1,3 +1,5 @@
+import os
+
 from crewai import Agent
 
 from config import llm_config
@@ -20,3 +22,14 @@ def create_writer_agent() -> Agent:
         allow_delegation=False,
         llm=llm_config.get_crewai_llm(),
     )
+
+    def save_report(self, content, filename):
+        # 确保目录存在
+        report_dir = "reports"
+        if not os.path.exists(report_dir):
+            os.makedirs(report_dir)
+        
+        file_path = os.path.join(report_dir, filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"报告已保存至: {os.path.abspath(file_path)}")
