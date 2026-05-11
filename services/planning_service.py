@@ -106,7 +106,12 @@ class PlanningService:
 
         depth_instruction = ""
         if depth == "deep":
-            depth_instruction = "\n\n注意：用户选择了深度研究模式，请制定更详细的研究计划，增加更多搜索维度和分析角度，子任务数量不少于6个。"
+            depth_instruction = (
+                "\n\n注意：用户选择了深度研究模式，请制定更详细的研究计划，"
+                "增加更多搜索维度和分析角度，子任务数量不少于6个。"
+                "同时请在每个任务中明确标注信息优先级（高/中/低），"
+                "以便后续上下文管理时优先保留高价值信息。"
+            )
 
         messages = [
             SystemMessage(content=PLANNING_SYSTEM_PROMPT),

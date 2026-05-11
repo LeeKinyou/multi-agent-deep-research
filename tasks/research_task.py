@@ -1,6 +1,7 @@
 from crewai import Task
 
 from agents.research_agent import create_research_agent
+from config import context_config
 
 
 def create_research_task(topic: str, search_queries: list[str] = None) -> Task:
@@ -29,7 +30,9 @@ def create_research_task(topic: str, search_queries: list[str] = None) -> Task:
             "- 优先采集近两年的最新数据\n"
             "- 关注权威来源（政府报告、行业白皮书、知名咨询公司报告）\n"
             "- 对同一数据尽量找到多个来源进行交叉验证\n"
-            "- 记录数据的具体数值和来源"
+            "- 记录数据的具体数值和来源\n"
+            "- 控制输出内容长度，避免信息过载\n"
+            "- 重要信息优先保留，次要信息可简要概括"
         ).format(topic=topic, queries=queries_str),
         expected_output=(
             "一份结构化的信息采集报告，包含：\n"

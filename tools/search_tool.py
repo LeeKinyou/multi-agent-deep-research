@@ -5,8 +5,12 @@ import requests
 from bs4 import BeautifulSoup
 from crewai.tools import tool
 from config import search_config
+from services.data_cleaner import ContentCleaner, ContentCache
 
 logger = logging.getLogger(__name__)
+
+content_cleaner = ContentCleaner(max_chars=2000, min_word_count=50)
+content_cache = ContentCache(max_size=100, max_memory_mb=50)
 
 
 @tool("Tavily Web Search")
@@ -92,6 +96,11 @@ def scrape_webpage(url: str) -> str:
         url: 要抓取的网页URL
     """
     try:
+        cached = content_cache.get(url)
+        if cached:
+            logger.info(f"使用缓存内容: {url}")
+            return cached.text
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                           "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -104,13 +113,19 @@ def scrape_webpage(url: str) -> str:
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
 
-        text = soup.get_text(separator="\n", strip=True)
+        raw_text = soup.get_text(separator="\n", strip=True)
 
-        max_chars = 8000
-        if len(text) > max_chars:
-            text = text[:max_chars] + "\n\n[内容已截断...]"
+        title_tag = soup.find("title")
+        title = title_tag.get_text(strip=True) if title_tag else ""
 
-        return text
+        cleaned = content_cleaner.clean(raw_text, url=url, title=title)
+
+        if not cleaned.text:
+            return f"网页内容不符合要求: {url}"
+
+        content_cache.put(url, cleaned)
+
+        return cleaned.text
 
     except Exception as e:
         logger.error(f"网页抓取失败 [{url}]: {e}")

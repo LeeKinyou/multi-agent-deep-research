@@ -93,6 +93,12 @@ class SearchConfig:
     search_depth: str = os.getenv("SEARCH_DEPTH", "basic")
 
 
+class ContextConfig:
+    max_tokens: int = int(os.getenv("CONTEXT_MAX_TOKENS", "8000"))
+    warning_threshold: float = float(os.getenv("CONTEXT_WARNING_THRESHOLD", "0.75"))
+    critical_threshold: float = float(os.getenv("CONTEXT_CRITICAL_THRESHOLD", "0.9"))
+
+
 class AppConfig:
     port: int = int(os.getenv("APP_PORT", "8000"))
     database_url: str = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'tasks.db'}")
@@ -102,4 +108,5 @@ class AppConfig:
 
 llm_config = LLMConfig()
 search_config = SearchConfig
+context_config = ContextConfig()
 app_config = AppConfig

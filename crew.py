@@ -8,6 +8,8 @@ from agents.research_agent import create_research_agent
 from agents.business_agent import create_business_agent
 from agents.writer_agent import create_writer_agent
 from services.planning_service import PlanningService, ResearchPlan
+from services.context_manager import ContextManager
+from config import context_config
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +18,11 @@ class ResearchCrew:
     def __init__(self, planning_service: Optional[PlanningService] = None):
         self.planning_service = planning_service or PlanningService()
         self._plan: Optional[ResearchPlan] = None
+        self.context_manager = ContextManager(
+            max_tokens=context_config.max_tokens,
+            warning_threshold=context_config.warning_threshold,
+            critical_threshold=context_config.critical_threshold,
+        )
 
     def create_plan(self, topic: str, depth: str = "standard") -> ResearchPlan:
         logger.info(f"Creating research plan for topic: {topic}")
@@ -73,8 +80,19 @@ class ResearchCrew:
 
         crew = self.build_crew(topic, plan)
         logger.info("Starting crew execution...")
+
+        self.context_manager.add_segment(
+            content=f"研究主题: {topic}\n研究深度: {depth}\n任务数: {len(plan.tasks)}",
+            importance=0.9,
+            source="plan",
+        )
+
         result = crew.kickoff()
         logger.info("Crew execution completed")
+
+        status = self.context_manager.get_status()
+        logger.info(f"上下文状态: {status}")
+
         return str(result)
 
     async def arun(self, topic: str, depth: str = "standard") -> str:
