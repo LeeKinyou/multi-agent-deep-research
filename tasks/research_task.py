@@ -11,8 +11,8 @@ from agents.research_agent import create_research_agent
 from models.structured_output import ResearchOutput
 
 
-def create_research_task(topic: str, search_queries: list[str] = None) -> Task:
-    agent = create_research_agent(task_id=None)
+def create_research_task(topic: str, search_queries: list[str] = None, task_id: str = None) -> Task:
+    agent = create_research_agent(task_id=task_id)
     queries = search_queries or [
         f"{topic}市场规模 发展趋势",
         f"{topic}行业报告 现状分析",

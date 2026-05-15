@@ -85,3 +85,4 @@ reports/
 .chainlit/
 
 .pytest_cache/
+.files/

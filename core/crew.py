@@ -72,7 +72,7 @@ class ResearchCrew:
             if task.agent == "ResearchAgent" and task.search_queries:
                 research_queries.extend(task.search_queries)
 
-        research_task = create_research_task(topic, research_queries if research_queries else None)
+        research_task = create_research_task(topic, research_queries if research_queries else None, task_id=self.task_id)
         analysis_task = create_analysis_task(topic)
         writing_task = create_writing_task(topic)
 
