@@ -402,11 +402,19 @@ class LLMJudgeEvaluator:
         # 解析 JSON
         parsed = self._parse_json_response(content)
 
+        score = float(parsed.get("score", 5))
+        reasoning = parsed.get("reasoning", "")
+        if "score" not in parsed:
+            logger.warning(
+                f"JSON parsing failed for dimension {dimension.value}, using default score 5"
+            )
+            reasoning = "JSON解析失败，使用默认分"
+
         return DimensionScore(
             dimension=dimension.value,
-            score=float(parsed.get("score", 0)),
+            score=score,
             weight=config.get("weight", 1.0),
-            reasoning=parsed.get("reasoning", ""),
+            reasoning=reasoning,
             deductions=parsed.get("deductions", []),
             suggestions=parsed.get("suggestions", []),
         )

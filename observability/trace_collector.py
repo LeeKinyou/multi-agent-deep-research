@@ -11,6 +11,7 @@ Trace 数据采集器
 支持异步采集、批量上报和本地缓存兜底。
 """
 
+import os
 import time
 import json
 import logging
@@ -167,6 +168,7 @@ class TraceCollector:
         self._local_buffer: List[Dict[str, Any]] = []
         self._buffer_size = 100
         self._enabled = True
+        self._storage_dir = os.path.join(os.path.dirname(__file__), "..", ".trace_data")
 
     def initialize(self, langfuse_client: Optional[LangfuseClient] = None) -> None:
         """初始化采集器，连接 Langfuse"""
@@ -240,7 +242,13 @@ class TraceCollector:
         trace.status = status
 
         # 计算汇总指标
-        trace.total_duration_ms = sum(tc.duration_ms for tc in trace.tool_calls)
+        # 使用 start_time 和 end_time 计算实际总耗时（包含 LLM 调用、思考时间等）
+        if trace.start_time and trace.end_time:
+            start = datetime.fromisoformat(trace.start_time)
+            end = datetime.fromisoformat(trace.end_time)
+            trace.total_duration_ms = (end - start).total_seconds() * 1000
+        else:
+            trace.total_duration_ms = sum(tc.duration_ms for tc in trace.tool_calls)
         trace.total_input_tokens = sum(tu.input_tokens for tu in trace.token_usage)
         trace.total_output_tokens = sum(tu.output_tokens for tu in trace.token_usage)
         trace.total_cost_usd = sum(tu.cost_usd for tu in trace.token_usage)
@@ -457,10 +465,22 @@ class TraceCollector:
         return 0.0
 
     def _flush_local_buffer(self) -> None:
-        """刷新本地缓冲区"""
+        """刷新本地缓冲区，将数据持久化到磁盘"""
         if not self._local_buffer:
             return
-        logger.debug(f"Flushing {len(self._local_buffer)} trace records to local storage")
+
+        try:
+            os.makedirs(self._storage_dir, exist_ok=True)
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            filepath = os.path.join(self._storage_dir, f"traces_{timestamp}.json")
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(self._local_buffer, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"Persisted {len(self._local_buffer)} trace records to {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to persist trace buffer: {e}")
+
         self._local_buffer.clear()
 
     def flush(self) -> None:

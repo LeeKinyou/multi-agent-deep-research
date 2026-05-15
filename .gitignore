@@ -86,3 +86,6 @@ reports/
 
 .pytest_cache/
 .files/
+
+# Trace data
+.trace_data/
