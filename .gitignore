@@ -92,3 +92,6 @@ reports/
 
 # Knowledge base test data
 data/knowledge_base/
+
+# Multimodal test data
+data/multimodal/
