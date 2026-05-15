@@ -6,7 +6,7 @@
 [![CrewAI](https://img.shields.io/badge/CrewAI-0.165%2B-purple.svg)](https://docs.crewai.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**MultiAgent Deep Research** 是一个基于多智能体协作的深度研究系统。用户只需输入研究主题，系统即可自动制定研究计划、调度各专业 Agent 执行信息采集、多维度分析、交叉验证，最终输出结构化的专业研究报告。系统内置企业级链路可观测性与 LLM-as-a-Judge 评测体系，支持全流程可视化监控和自动化质量评估。
+**MultiAgent Deep Research** 是一个基于多智能体协作的深度研究系统。用户只需输入研究主题，系统即可自动制定研究计划、调度各专业 Agent 执行信息采集、多维度分析、交叉验证，最终输出结构化的专业研究报告。系统支持灵活集成多种多模态大模型（Qwen-VL、GPT-4V、Claude、Gemini），具备企业级链路可观测性与 LLM-as-a-Judge 评测体系，支持全流程可视化监控和自动化质量评估。
 
 ---
 
@@ -18,6 +18,13 @@
 - 📊 **多维度分析能力**：覆盖商业、技术、竞品等维度，支持交叉验证
 - 🤖 **4 个核心 Agent 协同**：主编规划、情报采集、商业分析、报告生成
 
+### 多模态视觉分析
+- 🖼️ **灵活的多模型支持**：支持 Qwen-VL、GPT-4V、Claude、Gemini 等多种视觉大模型
+- 📈 **智能图表解析**：自动识别柱状图、折线图、饼图、散点图等图表类型
+- 🔢 **定量数据提取**：从可视化图表中精确提取数值数据
+- 📋 **趋势分析与洞察**：生成数据趋势描述和关键业务洞察
+- 🏭 **模型工厂模式**：通过统一接口切换不同模型，无需修改代码
+
 ### 企业级可观测性
 - 🔗 **Langfuse 链路追踪**：Agent 执行全流程可视化监控
 - ⏱️ **Trace 数据采集**：Tool Call 耗时（毫秒级）、Token 消耗统计、Prompt 演变记录、决策节点追踪
@@ -27,10 +34,10 @@
 ### 自动化评测体系
 - 🎯 **LLM-as-a-Judge**：多维度自动化评分（信源一致性、逻辑严密性、准确性、完整性、引用质量）
 - 📋 **详细评分报告**：分数、扣分点、改进建议
-- � **历史数据对比**：支持趋势分析和质量追踪
+- 📊 **历史数据对比**：支持趋势分析和质量追踪
 
 ### 用户体验
-- �💬 **交互式 Web 界面**：Chainlit 驱动的对话式用户体验，支持计划确认
+-  **交互式 Web 界面**：Chainlit 驱动的对话式用户体验，支持计划确认
 - 📄 **结构化报告输出**：支持 Markdown 格式导出
 - 🔄 **异步任务管理**：支持异步任务执行和状态追踪
 - 📚 **历史记录管理**：查看过往分析任务和报告
@@ -74,6 +81,16 @@
 │  │ Vector DB   │        │  └──────────────────────────────┘   │
 │  └─────────────┘        │                                      │
 └──────────────────────────┴──────────────────────────────────────┘
+                                ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    多模态视觉分析层                              │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │              VisionModelFactory (模型工厂)                │  │
+│  ├──────────┬──────────┬──────────┬────────────────────────┤  │
+│  │ Qwen-VL  │ GPT-4V   │ Claude   │ Gemini                 │  │
+│  │ Adapter  │ Adapter  │ Adapter  │ Adapter                │  │
+│  └──────────┴──────────┴──────────┴────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -88,8 +105,9 @@
 | 多智能体框架 | CrewAI | Agent 编排与协作 |
 | LLM 集成 | LangChain | LLM 工具链 |
 | 数据库 | SQLAlchemy | ORM 与数据持久化 |
-| 搜索工具 | Tavily API | 网络搜索 |
+| 搜索工具 | Tavily API / DuckDuckGo | 网络搜索 |
 | 网页抓取 | BeautifulSoup4 | 网页内容提取 |
+| 视觉模型 | Qwen-VL / GPT-4V / Claude / Gemini | 多模态图表分析 |
 | 链路追踪 | Langfuse | 可观测性平台 |
 | 测试框架 | Pytest | 单元测试与集成测试 |
 
@@ -99,8 +117,8 @@
 
 - **Python**: 3.10 或更高版本
 - **操作系统**: Windows / macOS / Linux
-- **内存**: 至少 4GB RAM
-- **网络**: 需要访问外部 API（LLM、搜索服务）
+- **内存**: 至少 4GB RAM（本地视觉模型需要 8GB+）
+- **网络**: 需要访问外部 API（LLM、搜索服务、视觉模型）
 
 ---
 
@@ -140,27 +158,49 @@ cp .env.example .env
 # 编辑 .env 文件，配置必要的 API 密钥
 ```
 
-**.env 文件配置示例**：
+### 5. 选择并配置视觉模型
+
+系统支持多种视觉大模型，通过 `.env` 文件中的 `VISION_PROVIDER` 变量选择：
+
+#### 选项 A：Qwen-VL（本地部署，推荐）
+
+使用 LM Studio 或 Ollama 本地部署 Qwen-VL 模型，免费且无需 API Key：
 
 ```env
-# OpenAI API 配置（必需）
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_API_BASE=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4
-
-# 搜索 API 配置（可选）
-TAVILY_API_KEY=your_tavily_api_key_here
-
-# Langfuse 可观测性配置（可选）
-LANGFUSE_PUBLIC_KEY=pk-...
-LANGFUSE_SECRET_KEY=sk-...
-LANGFUSE_HOST=https://cloud.langfuse.com
-
-# 数据库配置（可选，默认使用 SQLite）
-DATABASE_URL=sqlite:///./research.db
+VISION_PROVIDER=qwen-vl
+VISION_MODEL_NAME=qwen2.5-vl-7b-instruct
+VISION_BASE_URL=http://localhost:1234/v1
+VISION_API_KEY=not-needed
 ```
 
-### 5. 启动服务
+#### 选项 B：OpenAI GPT-4V / GPT-4o
+
+```env
+VISION_PROVIDER=openai
+VISION_MODEL_NAME=gpt-4o
+VISION_BASE_URL=https://api.openai.com/v1
+VISION_API_KEY=your_openai_api_key_here
+```
+
+#### 选项 C：Anthropic Claude 3
+
+```env
+VISION_PROVIDER=anthropic
+VISION_MODEL_NAME=claude-3-5-sonnet-20241022
+VISION_BASE_URL=https://api.anthropic.com
+VISION_API_KEY=your_anthropic_api_key_here
+```
+
+#### 选项 D：Google Gemini
+
+```env
+VISION_PROVIDER=google
+VISION_MODEL_NAME=gemini-2.0-flash
+VISION_BASE_URL=
+VISION_API_KEY=your_google_api_key_here
+```
+
+### 6. 启动服务
 
 ```bash
 # Windows
@@ -170,7 +210,7 @@ scripts\start.bat all
 python cli/start_services.py all
 ```
 
-### 6. 访问应用
+### 7. 访问应用
 
 - **前端界面**: http://localhost:8001
 - **API 文档**: http://localhost:8000/api/docs
@@ -190,6 +230,16 @@ python cli/start_services.py all
    - 点击「取消研究」放弃当前任务
 4. **等待执行完成**：系统按计划调度各 Agent 执行
 5. **查看和下载报告**：在线预览或下载 Markdown 格式报告
+
+### 多模态分析使用
+
+系统会自动对研究过程中遇到的图表进行视觉分析：
+
+- **PDF 文档中的图表**：自动提取并分析
+- **网页中的可视化内容**：智能识别并解析
+- **生成的图表**：验证数据准确性
+
+无需额外配置，视觉分析会在后台自动执行。
 
 ### CLI 模式
 
@@ -223,7 +273,49 @@ curl http://localhost:8000/api/v1/tasks/{task_id}/result
 
 ---
 
-## 🔍 可观测性使用
+## � 高级配置
+
+### 自定义视觉模型
+
+如果需要使用其他兼容 OpenAI API 格式的视觉模型，只需修改环境变量：
+
+```env
+VISION_PROVIDER=qwen-vl
+VISION_MODEL_NAME=your-custom-model-name
+VISION_BASE_URL=http://your-api-server/v1
+VISION_API_KEY=your-api-key
+```
+
+### 添加新的视觉模型适配器
+
+系统采用适配器模式设计，添加新模型非常简单：
+
+1. 在 `multimodal/vision_adapters/` 目录下创建新的适配器文件
+2. 继承 `BaseVisionAdapter` 基类
+3. 实现 `initialize()`、`analyze_image()` 和 `get_model_info()` 方法
+4. 在 `VisionModelFactory.PROVIDER_MAP` 中注册新适配器
+
+示例：
+
+```python
+from multimodal.vision_adapters.base import BaseVisionAdapter
+
+class MyCustomAdapter(BaseVisionAdapter):
+    def initialize(self) -> bool:
+        # 初始化你的模型客户端
+        pass
+
+    def analyze_image(self, image_data, image_format, context):
+        # 实现图像分析逻辑
+        pass
+
+    def get_model_info(self):
+        return {"provider": "custom", "model_name": self.model_name}
+```
+
+---
+
+## �🔍 可观测性使用
 
 ### 启用链路追踪
 
@@ -281,35 +373,6 @@ for dim in result.dimensions:
     print(f"  {dim.dimension}: {dim.score}/10")
 ```
 
-### 查看告警
-
-```python
-from observability import AlertService
-
-alerts = AlertService()
-# 检查指标
-alerts.check_metric("tool_call_duration_ms", 35000)
-# 查看历史
-history = alerts.get_history()
-```
-
-### 数据导出
-
-```python
-from observability import DashboardService
-
-dashboard = DashboardService()
-
-# 导出 JSON
-json_data = dashboard.export_to_json(hours=24)
-
-# 导出 CSV
-csv_data = dashboard.export_to_csv(hours=24)
-
-# 生成报告
-report = dashboard.generate_report(hours=24, format="markdown")
-```
-
 ---
 
 ## 📁 项目结构
@@ -342,12 +405,23 @@ MultiAgentDeepResearch/
 │   └── plan_display.py         # 计划展示
 ├── models/                     # 数据模型
 │   └── structured_output.py    # 结构化输出模型
+├── multimodal/                 # 多模态处理模块
+│   ├── __init__.py             # 模块入口
+│   ├── pdf_extractor.py        # PDF 文档解析
+│   ├── web_extractor.py        # 网页内容提取
+│   ├── vision_analyzer.py      # 视觉分析器（多模型适配）
+│   ├── chart_generator.py      # 图表生成
+│   ├── context_linker.py       # 图文关联
+│   └── vision_adapters/        # 视觉模型适配器
+│       ├── __init__.py         # 适配器入口
+│       ├── base.py             # 抽象基类
+│       ├── qwen_vl.py          # Qwen-VL 适配器
+│       ├── gpt4v.py            # GPT-4V 适配器
+│       ├── claude.py           # Claude 适配器
+│       ├── gemini.py           # Gemini 适配器
+│       └── factory.py          # 模型工厂
 ├── observability/              # 可观测性模块
 │   ├── docs/                   # 可观测性文档
-│   │   ├── ARCHITECTURE.md     # 架构设计
-│   │   ├── API_REFERENCE.md    # API 参考
-│   │   ├── DEPLOYMENT.md       # 部署指南
-│   │   └── USAGE_GUIDE.md      # 使用手册
 │   ├── __init__.py             # 模块入口
 │   ├── alert_service.py        # 异常检测与告警
 │   ├── dashboard.py            # 可视化仪表盘
@@ -355,23 +429,13 @@ MultiAgentDeepResearch/
 │   ├── langfuse_client.py      # Langfuse 客户端
 │   └── trace_collector.py      # Trace 数据采集器
 ├── services/                   # 辅助服务
-│   ├── context_manager.py      # 上下文管理
-│   ├── data_cleaner.py         # 数据清洗
-│   ├── document_chunker.py     # 文档分块
-│   ├── planning_service.py     # 规划服务
-│   └── vector_store.py         # 向量存储
 ├── tasks/                      # 任务定义
-│   ├── analysis_task.py        # 分析任务
-│   ├── planning_task.py        # 规划任务
-│   ├── research_task.py        # 研究任务
-│   └── writing_task.py         # 写作任务
 ├── tools/                      # 工具集成
-│   ├── rag_tools.py            # RAG 工具
-│   └── search_tool.py          # 搜索工具
 ├── tests/                      # 测试文件
 ├── docs/                       # 项目文档
 ├── scripts/                    # 脚本
 ├── requirements.txt            # 依赖列表
+├── .env.example                # 环境变量模板
 ├── Dockerfile                  # Docker 配置
 └── docker-compose.yml          # Docker 编排
 ```
@@ -413,6 +477,9 @@ pytest tests/ -v
 # API 测试
 pytest tests/test_api.py -v
 
+# 多模态测试
+pytest tests/test_multimodal.py -v
+
 # 可观测性测试
 pytest tests/test_observability.py -v
 
@@ -424,6 +491,53 @@ pytest tests/test_crew.py -v
 
 ```bash
 pytest tests/ --cov=. --cov-report=html
+```
+
+---
+
+## 🐛 故障排除
+
+### 常见问题
+
+#### 1. 视觉模型连接失败
+
+**问题**: `Vision model connection failed`
+
+**解决方案**:
+- 检查 `VISION_PROVIDER` 是否正确设置
+- 确认 `VISION_BASE_URL` 可访问
+- 验证 `VISION_API_KEY` 是否有效
+- 本地模型：确保 LM Studio/Ollama 正在运行
+
+#### 2. API Key 未生效
+
+**问题**: `Authentication error` 或 `Invalid API key`
+
+**解决方案**:
+- 确认 `.env` 文件存在且配置正确
+- 重启服务使环境变量生效
+- 检查 API Key 是否有足够权限
+
+#### 3. 内存不足
+
+**问题**: `Out of memory` 错误
+
+**解决方案**:
+- 本地视觉模型需要至少 8GB RAM
+- 关闭其他占用内存的应用
+- 使用云端模型（GPT-4V、Claude、Gemini）替代本地模型
+
+#### 4. 依赖安装失败
+
+**问题**: `pip install` 报错
+
+**解决方案**:
+```bash
+# 升级 pip
+pip install --upgrade pip
+
+# 使用国内镜像（如果网络受限）
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ---
@@ -448,10 +562,11 @@ docker-compose up -d
 
 ```yaml
 environment:
-  - OPENAI_API_KEY=your_key_here
-  - TAVILY_API_KEY=your_tavily_key_here
-  - LANGFUSE_PUBLIC_KEY=pk-...
-  - LANGFUSE_SECRET_KEY=sk-...
+  - LLM_PROVIDER=openai
+  - LLM_API_KEY=your_key_here
+  - VISION_PROVIDER=qwen-vl
+  - VISION_MODEL_NAME=qwen2.5-vl-7b-instruct
+  - VISION_BASE_URL=http://host.docker.internal:1234/v1
 ```
 
 ---
@@ -546,6 +661,10 @@ Closes #123
 - [FastAPI](https://github.com/tiangolo/fastapi) - 高性能 API 框架
 - [LangChain](https://github.com/langchain-ai/langchain) - LLM 应用开发框架
 - [Langfuse](https://github.com/langfuse/langfuse) - LLM 可观测性平台
+- [OpenAI](https://openai.com/) - GPT-4V / GPT-4o 视觉模型
+- [Anthropic](https://www.anthropic.com/) - Claude 视觉模型
+- [Google](https://ai.google.dev/) - Gemini 视觉模型
+- [Qwen](https://qwenlm.github.io/) - Qwen-VL 视觉模型
 
 ---
 

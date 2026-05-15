@@ -207,13 +207,18 @@ class TestWebVisualExtractor:
 class TestVisionAnalyzer:
     def setup_method(self):
         from multimodal.vision_analyzer import VisionAnalyzer, ChartAnalysisResult, DataPoint
-        self.analyzer = VisionAnalyzer()
+        self.analyzer = VisionAnalyzer(
+            provider="qwen-vl",
+            model_name="qwen2.5-vl-7b-instruct",
+            api_key="not-needed",
+            base_url="http://localhost:1234/v1",
+        )
         self.ChartAnalysisResult = ChartAnalysisResult
         self.DataPoint = DataPoint
 
     def test_init_default_values(self):
-        assert "localhost" in self.analyzer.model_url
-        assert "qwen" in self.analyzer.model_name.lower()
+        assert "localhost" in self.analyzer._adapter.base_url
+        assert "qwen" in self.analyzer._adapter.model_name.lower()
 
     def test_chart_analysis_result_creation(self):
         result = self.ChartAnalysisResult(
@@ -247,7 +252,7 @@ class TestVisionAnalyzer:
             "confidence": 0.9
         }
         """
-        result = self.analyzer._parse_analysis_response(response)
+        result = self.analyzer._adapter._parse_analysis_response(response)
         assert result.chart_type == "bar"
         assert result.title == "Test Chart"
         assert len(result.data_points) == 1
@@ -257,7 +262,7 @@ class TestVisionAnalyzer:
 
     def test_parse_analysis_response_invalid_json(self):
         response = "This is not JSON"
-        result = self.analyzer._parse_analysis_response(response)
+        result = self.analyzer._adapter._parse_analysis_response(response)
         assert result.chart_type == "unknown"
         assert result.confidence == 0.0
 
@@ -275,19 +280,19 @@ class TestVisionAnalyzer:
         }
         End of analysis.
         """
-        result = self.analyzer._parse_analysis_response(response)
+        result = self.analyzer._adapter._parse_analysis_response(response)
         assert result.chart_type == "line"
         assert result.title == "Trend Chart"
 
     def test_fallback_analysis(self):
-        result = self.analyzer._fallback_analysis(b"fake_image", "context")
+        result = self.analyzer._adapter._fallback_analysis(b"fake_image", "context")
         assert result.chart_type == "unknown"
         assert result.confidence == 0.0
 
     def test_get_status(self):
         status = self.analyzer.get_status()
         assert "initialized" in status
-        assert "model_url" in status
+        assert "base_url" in status
         assert "model_name" in status
 
 
