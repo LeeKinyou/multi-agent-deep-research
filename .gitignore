@@ -89,3 +89,6 @@ reports/
 
 # Trace data
 .trace_data/
+
+# Knowledge base test data
+data/knowledge_base/
