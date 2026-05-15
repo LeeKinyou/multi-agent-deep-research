@@ -5,7 +5,7 @@ import logging
 import sys
 
 from config import REPORTS_DIR, llm_config, search_config
-from crew import ResearchCrew
+from core.crew import ResearchCrew
 from services.planning_service import PlanningService
 
 logging.basicConfig(
@@ -49,31 +49,31 @@ def interactive_mode():
 
     errors = check_environment()
     if errors:
-        print("\n⚠️  环境配置问题：")
+        print("\n[注意] 环境配置问题：")
         for err in errors:
             print(f"  - {err}")
         print("\n请修复后重试。")
         return 1
 
-    print(f"\n📋 当前配置：")
+    print(f"\n- 当前配置：")
     print(f"  LLM模型: {llm_config.model}")
     print(f"  搜索工具: {search_config.tool}")
     print(f"  报告目录: {REPORTS_DIR}")
 
     while True:
         print("\n" + "-" * 60)
-        topic = input("🔍 请输入研究主题（输入q退出）: ").strip()
+        topic = input("[输入] 请输入研究主题（输入q退出）: ").strip()
         if topic.lower() == "q":
             print("再见！")
             break
         if not topic:
-            print("⚠️  研究主题不能为空")
+            print("[错误] 研究主题不能为空")
             continue
 
-        depth_input = input("📊 研究深度 (1=标准, 2=深度) [默认1]: ").strip()
+        depth_input = input("[选择] 研究深度 (1=标准, 2=深度) [默认1]: ").strip()
         depth = "deep" if depth_input == "2" else "standard"
 
-        confirm_input = input("✋ 是否需要确认研究计划？(y/n) [默认y]: ").strip().lower()
+        confirm_input = input("[确认] 是否需要确认研究计划？(y/n) [默认y]: ").strip().lower()
         auto_confirm = confirm_input == "n"
 
         try:
@@ -85,20 +85,20 @@ def interactive_mode():
             print("=" * 60)
 
             filepath = save_report(topic, result)
-            print(f"\n📄 报告已保存至: {filepath}")
+            print(f"\n[报告] 已保存至: {filepath}")
 
             preview_lines = result.split("\n")[:20]
-            print("\n📖 报告预览：")
+            print("\n[预览] 报告预览：")
             print("-" * 40)
             print("\n".join(preview_lines))
             if len(result.split("\n")) > 20:
                 print("... (更多内容请查看完整报告)")
 
         except KeyboardInterrupt:
-            print("\n\n⚠️  研究已被用户中断")
+            print("\n\n[中断] 研究已被用户中断")
         except Exception as e:
             logger.error(f"研究执行失败: {e}", exc_info=True)
-            print(f"\n❌ 研究执行失败: {str(e)}")
+            print(f"\n[错误] 研究执行失败: {str(e)}")
 
         continue_choice = input("\n是否继续新的研究？(y/n) [默认n]: ").strip().lower()
         if continue_choice != "y":
@@ -110,7 +110,7 @@ def interactive_mode():
 def single_run(topic: str, depth: str = "standard", auto_confirm: bool = True):
     errors = check_environment()
     if errors:
-        print("⚠️  环境配置问题：")
+        print("[注意] 环境配置问题：")
         for err in errors:
             print(f"  - {err}")
         return 1
@@ -120,13 +120,13 @@ def single_run(topic: str, depth: str = "standard", auto_confirm: bool = True):
         result = crew.run(topic, depth=depth, auto_confirm=auto_confirm)
 
         filepath = save_report(topic, result)
-        print(f"\n📄 报告已保存至: {filepath}")
+        print(f"\n[报告] 已保存至: {filepath}")
         print(f"\n{result}")
         return 0
 
     except Exception as e:
         logger.error(f"研究执行失败: {e}", exc_info=True)
-        print(f"❌ 研究执行失败: {str(e)}")
+        print(f"[错误] 研究执行失败: {str(e)}")
         return 1
 
 

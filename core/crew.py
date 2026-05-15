@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import Optional, Callable, Dict, Any
 
@@ -11,6 +12,7 @@ from agents.writer_agent import create_writer_agent
 from services.planning_service import PlanningService, ResearchPlan
 from services.context_manager import ContextManager
 from config import context_config
+from models.structured_output import ReportOutput
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +89,63 @@ class ResearchCrew:
         logger.info(f"Crew built with {len(crew.agents)} agents and {len(crew.tasks)} tasks")
         return crew
 
+    def _render_report_to_markdown(self, result) -> str:
+        try:
+            if hasattr(result, 'pydantic') and result.pydantic:
+                report: ReportOutput = result.pydantic
+                return self._format_report_output(report)
+            elif hasattr(result, 'raw') and result.raw:
+                try:
+                    data = json.loads(result.raw)
+                    if isinstance(data, dict) and 'title' in data:
+                        report = ReportOutput(**data)
+                        return self._format_report_output(report)
+                except:
+                    pass
+                return str(result.raw)
+            return str(result)
+        except Exception as e:
+            logger.error(f"Failed to render report: {e}")
+            return str(result)
+
+    def _format_report_output(self, report: ReportOutput) -> str:
+        lines = []
+        lines.append(f"# {report.title}\n")
+        
+        if report.executive_summary:
+            lines.append("## 执行摘要\n")
+            lines.append(report.executive_summary)
+            lines.append("")
+        
+        for section in report.sections:
+            lines.append(f"## {section.title}\n")
+            lines.append(section.content)
+            lines.append("")
+            
+            for subsection in section.subsections:
+                lines.append(f"### {subsection.title}\n")
+                lines.append(subsection.content)
+                lines.append("")
+        
+        if report.conclusion:
+            lines.append("## 结论\n")
+            lines.append(report.conclusion)
+            lines.append("")
+        
+        if report.appendices:
+            lines.append("## 附录\n")
+            for appendix in report.appendices:
+                lines.append(f"- {appendix}")
+            lines.append("")
+        
+        if report.sources:
+            lines.append("## 参考来源\n")
+            for i, source in enumerate(report.sources, 1):
+                lines.append(f"{i}. [{source.title}]({source.url})")
+            lines.append("")
+        
+        return "\n".join(lines)
+
     def run(self, topic: str, depth: str = "standard", auto_confirm: bool = True) -> str:
         plan = self.create_plan(topic, depth)
 
@@ -112,7 +171,7 @@ class ResearchCrew:
         status = self.context_manager.get_status()
         logger.info(f"上下文状态: {status}")
 
-        return str(result)
+        return self._render_report_to_markdown(result)
 
     async def arun(self, topic: str, depth: str = "standard") -> str:
         plan = self.create_plan(topic, depth)
@@ -120,7 +179,7 @@ class ResearchCrew:
         logger.info("Starting async crew execution...")
         result = await crew.kickoff_async()
         logger.info("Async crew execution completed")
-        return str(result)
+        return self._render_report_to_markdown(result)
 
     async def arun_streaming(self, topic: str, depth: str = "standard") -> str:
         await self._emit_event("task_status", {
@@ -263,8 +322,8 @@ class ResearchCrew:
         })
 
         await self._emit_event("complete", {
-            "result": str(result),
+            "result": self._render_report_to_markdown(result),
         })
 
         logger.info("Streaming crew execution completed")
-        return str(result)
+        return self._render_report_to_markdown(result)

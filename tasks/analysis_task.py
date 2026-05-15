@@ -1,10 +1,18 @@
+"""
+分析任务 - 使用结构化JSON输出
+
+BusinessAnalyst接收ResearchOutput JSON，输出AnalysisOutput JSON格式
+通过RAG检索获取完整数据，避免上下文截断
+"""
+
 from crewai import Task
 
 from agents.business_agent import create_business_agent
+from models.structured_output import AnalysisOutput
 
 
 def create_analysis_task(topic: str, research_context: str = "") -> Task:
-    agent = create_business_agent()
+    agent = create_business_agent(task_id=None)
     context_section = ""
     if research_context:
         context_section = f"\n\n以下是情报采集阶段获取的信息：\n{research_context}\n"
@@ -35,15 +43,21 @@ def create_analysis_task(topic: str, research_context: str = "") -> Task:
             "分析要求：\n"
             "- 每个结论都需要有数据或事实支撑\n"
             "- 分析框架完整，逻辑严密\n"
-            "- 建议具体可执行，避免空泛"
+            "- 建议具体可执行，避免空泛\n"
+            "- 输出必须为严格的JSON格式，不要包含任何额外文本"
         ).format(topic=topic, context=context_section),
         expected_output=(
-            "一份完整的分析报告，包含：\n"
-            "- 现状分析概述\n"
-            "- SWOT分析矩阵（每个维度至少3个要点）\n"
-            "- 趋势判断与预测\n"
-            "- 具体的建议和行动方案\n"
-            "- 所有分析的数据来源"
+            "返回AnalysisOutput JSON格式，包含：\n"
+            "- current_status: 现状分析概述\n"
+            "- key_characteristics: 关键特征列表\n"
+            "- swot: SWOT分析（优势/劣势/机会/威胁列表）\n"
+            "- trends: 趋势研判（方向/驱动因素/风险/预测）\n"
+            "- recommendations: 针对性建议列表\n"
+            "- risk_warnings: 风险提示列表\n"
+            "- action_priorities: 行动优先级列表\n"
+            "- conclusion: 分析结论\n"
+            "- data_sources: 分析数据来源"
         ),
         agent=agent,
+        output_pydantic=AnalysisOutput,
     )

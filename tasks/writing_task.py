@@ -1,6 +1,14 @@
+"""
+写作任务 - 接收JSON并渲染为Markdown报告
+
+WriterAgent接收ResearchOutput和AnalysisOutput JSON数据
+将其渲染为优美的Markdown格式研究报告
+"""
+
 from crewai import Task
 
 from agents.writer_agent import create_writer_agent
+from models.structured_output import ReportOutput
 
 
 REPORT_TEMPLATE = """# {topic} 研究报告
@@ -75,4 +83,5 @@ def create_writing_task(topic: str, analysis_context: str = "") -> Task:
             "报告字数不少于2000字，逻辑清晰，数据有据"
         ),
         agent=agent,
+        output_pydantic=ReportOutput,
     )

@@ -115,14 +115,14 @@ class TestResearchCrew:
         mock_svc.generate_plan.return_value = mock_plan
         mock_planning_svc_class.return_value = mock_svc
 
-        from crew import ResearchCrew
+        from core.crew import ResearchCrew
         crew = ResearchCrew(planning_service=mock_svc)
         plan = crew.create_plan("AI")
         assert plan.topic == "AI"
         mock_svc.generate_plan.assert_called_once_with("AI", "standard")
 
     def test_build_crew_without_plan_raises(self):
-        from crew import ResearchCrew
+        from core.crew import ResearchCrew
         crew = ResearchCrew()
         with pytest.raises(ValueError, match="请先创建研究计划"):
             crew.build_crew("AI")
@@ -130,10 +130,10 @@ class TestResearchCrew:
     @patch("tasks.writing_task.create_writer_agent")
     @patch("tasks.analysis_task.create_business_agent")
     @patch("tasks.research_task.create_research_agent")
-    @patch("crew.create_writer_agent")
-    @patch("crew.create_business_agent")
-    @patch("crew.create_research_agent")
-    @patch("crew.create_editor_agent")
+    @patch("core.crew.create_writer_agent")
+    @patch("core.crew.create_business_agent")
+    @patch("core.crew.create_research_agent")
+    @patch("core.crew.create_editor_agent")
     def test_build_crew_creates_correct_structure(
         self, mock_editor, mock_researcher, mock_analyst, mock_writer,
         mock_task_researcher, mock_task_analyst, mock_task_writer
@@ -169,7 +169,7 @@ class TestResearchCrew:
             ],
         )
 
-        from crew import ResearchCrew
+        from core.crew import ResearchCrew
         crew_instance = ResearchCrew()
         crew_instance._plan = plan
         crew = crew_instance.build_crew("AI")

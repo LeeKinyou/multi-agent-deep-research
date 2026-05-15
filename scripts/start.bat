@@ -61,7 +61,7 @@ if "%MODE%"=="api" (
 ) else if "%MODE%"=="cli" (
     echo [启动] 交互式 CLI...
     echo.
-    python main_cli.py -i
+    python cli/main_cli.py -i
 ) else (
     echo [错误] 未知模式: %MODE%
     echo 可用模式: api, all, cli

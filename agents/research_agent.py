@@ -11,14 +11,14 @@ from crewai import Agent
 
 from config import llm_config
 from tools.search_tool import get_search_tools
-from tools.rag_tools import RAGTools
+from tools.rag_tools import create_rag_tools
 
 
 def create_research_agent(task_id: str = None) -> Agent:
     tools = get_search_tools()
     
     if task_id:
-        rag_tools = RAGTools.create_store_and_search_tools(task_id)
+        rag_tools = create_rag_tools(task_id)
         tools.extend(rag_tools)
     
     backstory = (

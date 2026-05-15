@@ -83,3 +83,5 @@ reports/
 
 # chainlit
 .chainlit/
+
+.pytest_cache/

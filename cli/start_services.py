@@ -142,8 +142,8 @@ class ServiceManager:
         print()
         
         # CLI需要直接访问stdin/stdout，不能使用subprocess
-        # 直接执行main_cli.py
-        cmd = f"{sys.executable} main_cli.py -i"
+        # 直接执行cli/main_cli.py
+        cmd = f"{sys.executable} cli/main_cli.py -i"
         
         # 使用os.system直接执行，保持stdin/stdout/stderr连接
         import os
