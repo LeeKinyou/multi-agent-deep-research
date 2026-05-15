@@ -1,18 +1,36 @@
+"""
+上下文管理器 - 工作记忆 + RAG长期记忆架构
+
+架构设计：
+- 工作记忆(State Context)：保存大纲、核心指标和Agent互动摘要
+- 长期记忆(Vector Store)：通过ChromaDB存储完整文档，按任务ID隔离
+- 检索增强分析(RAG)：Agent按需检索，避免Token爆炸
+
+解决的问题：
+- 物理截断导致的信息丢失
+- Token爆炸和OOM问题
+- 深度研究中的上下文容量限制
+"""
+
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List, Dict, Any
+
+from services.vector_store import VectorStoreService, SearchResult, vector_store
+from services.document_chunker import DocumentChunker, DocumentChunk, document_chunker
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ContextSegment:
+class MemorySegment:
     content: str
     importance: float = 0.5
     token_estimate: int = 0
     is_summary: bool = False
     source: str = ""
+    segment_type: str = "working_memory"
 
 
 class ContextManager:
@@ -21,21 +39,32 @@ class ContextManager:
         max_tokens: int = 8000,
         warning_threshold: float = 0.75,
         critical_threshold: float = 0.9,
+        task_id: Optional[str] = None,
+        vector_store_service: Optional[VectorStoreService] = None,
+        chunker_service: Optional[DocumentChunker] = None,
     ):
         self.max_tokens = max_tokens
         self.warning_threshold = warning_threshold
         self.critical_threshold = critical_threshold
-        self._segments: list[ContextSegment] = []
+        self.task_id = task_id
+        
+        self._vector_store = vector_store_service or vector_store
+        self._chunker = chunker_service or document_chunker
+        
+        self._segments: List[MemorySegment] = []
         self._total_tokens: int = 0
         self._cleanup_count: int = 0
+        
+        logger.info(f"ContextManager initialized with RAG architecture (task: {task_id})")
 
-    def add_segment(self, content: str, importance: float = 0.5, source: str = ""):
+    def add_segment(self, content: str, importance: float = 0.5, source: str = "", segment_type: str = "working_memory"):
         token_count = self._estimate_tokens(content)
-        segment = ContextSegment(
+        segment = MemorySegment(
             content=content,
             importance=importance,
             token_estimate=token_count,
             source=source,
+            segment_type=segment_type,
         )
         self._segments.append(segment)
         self._total_tokens += token_count
@@ -43,6 +72,53 @@ class ContextManager:
         if self.get_usage_ratio() >= self.warning_threshold:
             logger.info(f"上下文使用率 {self.get_usage_ratio():.1%}，触发自动整理")
             self.auto_cleanup()
+
+    def add_document_to_vector_store(
+        self,
+        content: str,
+        source: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        if not self.task_id:
+            raise ValueError("task_id is required for vector store operations")
+        
+        chunks = self._chunker.chunk_document(content, source, metadata)
+        
+        if not chunks:
+            logger.warning(f"No chunks created from document: {source}")
+            return
+        
+        chunk_texts = [chunk.content for chunk in chunks]
+        chunk_metadatas = [chunk.metadata for chunk in chunks]
+        chunk_ids = [f"{self.task_id}_{source}_{chunk.chunk_index}" for chunk in chunks]
+        
+        self._vector_store.add_document(
+            task_id=self.task_id,
+            chunks=chunk_texts,
+            metadatas=chunk_metadatas,
+            ids=chunk_ids,
+        )
+        
+        logger.info(f"Added document to vector store: {source} ({len(chunks)} chunks)")
+
+    def search_memory(
+        self,
+        query: str,
+        n_results: int = 5,
+        where_filter: Optional[Dict[str, Any]] = None,
+    ) -> List[SearchResult]:
+        if not self.task_id:
+            raise ValueError("task_id is required for memory search")
+        
+        results = self._vector_store.search(
+            task_id=self.task_id,
+            query=query,
+            n_results=n_results,
+            where_filter=where_filter,
+        )
+        
+        logger.info(f"RAG search returned {len(results)} results for query: {query[:50]}...")
+        return results
 
     def get_context(self) -> str:
         if self.get_usage_ratio() >= self.critical_threshold:
@@ -79,12 +155,13 @@ class ContextManager:
             else:
                 if seg.importance >= 0.7:
                     summary = self._create_summary(seg.content, max_tokens=200)
-                    summary_seg = ContextSegment(
+                    summary_seg = MemorySegment(
                         content=summary,
                         importance=seg.importance,
                         token_estimate=self._estimate_tokens(summary),
                         is_summary=True,
                         source=seg.source,
+                        segment_type="summary",
                     )
                     kept_segments.append(summary_seg)
                     current_tokens += summary_seg.token_estimate
@@ -109,12 +186,13 @@ class ContextManager:
             else:
                 if seg.importance >= 0.8:
                     summary = self._create_summary(seg.content, max_tokens=100)
-                    summary_seg = ContextSegment(
+                    summary_seg = MemorySegment(
                         content=summary,
                         importance=seg.importance,
                         token_estimate=self._estimate_tokens(summary),
                         is_summary=True,
                         source=seg.source,
+                        segment_type="summary",
                     )
                     kept_segments.append(summary_seg)
                     current_tokens += summary_seg.token_estimate
@@ -127,12 +205,13 @@ class ContextManager:
 
     def add_summary(self, summary: str, importance: float = 0.9):
         token_count = self._estimate_tokens(summary)
-        segment = ContextSegment(
+        segment = MemorySegment(
             content=summary,
             importance=importance,
             token_estimate=token_count,
             is_summary=True,
             source="system",
+            segment_type="summary",
         )
         self._segments.append(segment)
         self._total_tokens += token_count
@@ -141,6 +220,13 @@ class ContextManager:
         self._segments.clear()
         self._total_tokens = 0
         self._cleanup_count = 0
+        
+        if self.task_id:
+            try:
+                self._vector_store.delete_task_collection(self.task_id)
+                logger.info(f"Cleared vector store for task {self.task_id}")
+            except Exception as e:
+                logger.warning(f"Failed to clear vector store: {e}")
 
     @property
     def segment_count(self) -> int:
@@ -149,6 +235,17 @@ class ContextManager:
     @property
     def cleanup_count(self) -> int:
         return self._cleanup_count
+
+    def get_vector_store_stats(self) -> Dict[str, Any]:
+        if not self.task_id:
+            return {"document_count": 0}
+        
+        try:
+            count = self._vector_store.get_document_count(self.task_id)
+            return {"document_count": count}
+        except Exception as e:
+            logger.warning(f"Failed to get vector store stats: {e}")
+            return {"document_count": 0}
 
     def _estimate_tokens(self, text: str) -> int:
         chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
@@ -180,4 +277,5 @@ class ContextManager:
             "usage_ratio": self.get_usage_ratio(),
             "segment_count": self.segment_count,
             "cleanup_count": self.cleanup_count,
+            "vector_store": self.get_vector_store_stats(),
         }

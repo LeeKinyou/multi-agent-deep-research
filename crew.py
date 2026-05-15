@@ -28,6 +28,7 @@ class ResearchCrew:
             max_tokens=context_config.max_tokens,
             warning_threshold=context_config.warning_threshold,
             critical_threshold=context_config.critical_threshold,
+            task_id=task_id,
         )
         self.task_id = task_id
         self.stream_callback = stream_callback
@@ -56,8 +57,8 @@ class ResearchCrew:
             raise ValueError("请先创建研究计划 (call create_plan first)")
 
         editor = create_editor_agent()
-        researcher = create_research_agent()
-        analyst = create_business_agent()
+        researcher = create_research_agent(task_id=self.task_id)
+        analyst = create_business_agent(task_id=self.task_id)
         writer = create_writer_agent()
 
         from tasks.research_task import create_research_task

@@ -135,9 +135,22 @@ class ServiceManager:
 
     def start_cli_interactive(self):
         print("启动交互式 CLI...")
+        print("=" * 60)
+        print("  注意: CLI模式将直接在前台运行")
+        print("  按 Ctrl+C 可以停止")
+        print("=" * 60)
+        print()
+        
+        # CLI需要直接访问stdin/stdout，不能使用subprocess
+        # 直接执行main_cli.py
         cmd = f"{sys.executable} main_cli.py -i"
-        process = self.run_command(cmd)
-        return process
+        
+        # 使用os.system直接执行，保持stdin/stdout/stderr连接
+        import os
+        exit_code = os.system(cmd)
+        
+        print(f"\nCLI已退出 (退出码: {exit_code})")
+        sys.exit(0)
 
     def check_dependencies(self):
         print("检查依赖...")
