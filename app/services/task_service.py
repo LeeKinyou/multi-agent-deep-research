@@ -113,8 +113,11 @@ class TaskService:
             task.updated_at = utcnow()
             self.db.commit()
 
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, lambda: execution_func(*args, **kwargs))
+            if asyncio.iscoroutinefunction(execution_func):
+                result = await execution_func(*args, **kwargs)
+            else:
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(None, lambda: execution_func(*args, **kwargs))
 
             self.save_task_result(task_id, report_content=str(result))
             task.status = TaskStatus.completed

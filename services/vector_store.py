@@ -10,6 +10,7 @@
 
 import logging
 import os
+import threading
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -17,6 +18,23 @@ import chromadb
 from chromadb.config import Settings
 
 logger = logging.getLogger(__name__)
+
+_embedding_client = None
+_embedding_client_lock = threading.Lock()
+
+
+def _get_shared_embedding_client(persist_directory: str) -> chromadb.PersistentClient:
+    global _embedding_client
+    if _embedding_client is None:
+        with _embedding_client_lock:
+            if _embedding_client is None:
+                os.makedirs(persist_directory, exist_ok=True)
+                _embedding_client = chromadb.PersistentClient(
+                    path=persist_directory,
+                    settings=Settings(anonymized_telemetry=False)
+                )
+                logger.info(f"Shared ChromaDB client initialized at {persist_directory}")
+    return _embedding_client
 
 
 @dataclass
@@ -30,13 +48,7 @@ class SearchResult:
 class VectorStoreService:
     def __init__(self, persist_directory: str = "./data/vector_store"):
         self.persist_directory = persist_directory
-        os.makedirs(persist_directory, exist_ok=True)
-        
-        self.client = chromadb.PersistentClient(
-            path=persist_directory,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        
+        self.client = _get_shared_embedding_client(persist_directory)
         self._collections: Dict[str, Any] = {}
         logger.info(f"VectorStore initialized at {persist_directory}")
 

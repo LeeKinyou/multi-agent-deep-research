@@ -1,11 +1,14 @@
 import asyncio
 import json
 import logging
+import threading
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Callable
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
+
+MAX_QUEUE_SIZE = 100
+MAX_HISTORY = 100
 
 
 class StreamEvent:
@@ -20,22 +23,36 @@ class StreamEvent:
 
 class StreamManager:
     _instance = None
-    _subscribers: Dict[str, List[asyncio.Queue]] = defaultdict(list)
-    _event_history: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    _max_history = 100
+    _lock = threading.Lock()
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(StreamManager, cls).__new__(cls)
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(StreamManager, cls).__new__(cls)
+                    cls._instance._initialized = False
         return cls._instance
 
+    def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
+        self._subscribers: Dict[str, List[asyncio.Queue]] = {}
+        self._event_history: Dict[str, List[Dict[str, Any]]] = {}
+        self._max_history = MAX_HISTORY
+
     def subscribe(self, task_id: str) -> asyncio.Queue:
-        queue = asyncio.Queue()
+        queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
+        if task_id not in self._subscribers:
+            self._subscribers[task_id] = []
         self._subscribers[task_id].append(queue)
-        
+
         for event in self._event_history.get(task_id, []):
-            queue.put_nowait(event)
-        
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                logger.warning(f"Queue full for task {task_id}, dropping old history event")
+
         logger.info(f"New subscriber for task {task_id}")
         return queue
 
@@ -51,26 +68,38 @@ class StreamManager:
     async def publish(self, task_id: str, event_type: str, data: Dict[str, Any]):
         event = StreamEvent(event_type, data)
         sse_data = event.to_sse()
-        
+
         history_entry = {
             "event_type": event_type,
             "data": data,
             "timestamp": event.timestamp,
         }
-        
+
+        if task_id not in self._event_history:
+            self._event_history[task_id] = []
         self._event_history[task_id].append(history_entry)
         if len(self._event_history[task_id]) > self._max_history:
             self._event_history[task_id] = self._event_history[task_id][-self._max_history:]
-        
+
         if task_id in self._subscribers:
             dead_queues = []
             for queue in self._subscribers[task_id]:
                 try:
                     queue.put_nowait(sse_data)
+                except asyncio.QueueFull:
+                    logger.warning(
+                        f"Backpressure: queue full for task {task_id}, "
+                        f"dropping oldest event (size={queue.qsize()})"
+                    )
+                    try:
+                        queue.get_nowait()
+                        queue.put_nowait(sse_data)
+                    except Exception:
+                        dead_queues.append(queue)
                 except Exception as e:
                     logger.error(f"Error publishing to queue for task {task_id}: {e}")
                     dead_queues.append(queue)
-            
+
             for queue in dead_queues:
                 try:
                     self._subscribers[task_id].remove(queue)
