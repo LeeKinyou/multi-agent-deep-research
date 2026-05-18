@@ -9,7 +9,8 @@ from pathlib import Path
 class ServiceManager:
     def __init__(self):
         self.processes = []
-        self.project_root = Path(__file__).parent
+        # 修改: 项目根目录应该是 cli 目录的父目录
+        self.project_root = Path(__file__).parent.parent
 
     def run_command(self, cmd, cwd=None, shell=True):
         # Windows 下使用 gb18030 编码处理中文输出
@@ -142,12 +143,18 @@ class ServiceManager:
         print()
         
         # CLI需要直接访问stdin/stdout，不能使用subprocess
-        # 直接执行cli/main_cli.py
-        cmd = f"{sys.executable} cli/main_cli.py -i"
+        # 直接执行cli目录下的 main_cli.py
+        cli_script = self.project_root / "cli" / "main_cli.py"
+        cmd = f"{sys.executable} {cli_script} -i"
         
         # 使用os.system直接执行，保持stdin/stdout/stderr连接
-        import os
-        exit_code = os.system(cmd)
+        # 设置工作目录为项目根目录，确保模块导入正常
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(self.project_root)
+            exit_code = os.system(cmd)
+        finally:
+            os.chdir(original_cwd)
         
         print(f"\nCLI已退出 (退出码: {exit_code})")
         sys.exit(0)
